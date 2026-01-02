@@ -1,0 +1,663 @@
+/* ===================================================================
+   1. 全局基础与容器
+   =================================================================== */
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #000;
+    font-family: sans-serif;
+}
+#map-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+    touch-action: none;
+}
+#game-map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+/* ===================================================================
+   2. 地图元素 (画布、标记、墙)
+   =================================================================== */
+#lines-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+.marker,
+.map-wall {
+    position: absolute;
+    cursor: pointer;
+    will-change: transform, opacity;
+}
+.marker {
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    object-fit: contain;
+}
+.map-wall {
+    transform-origin: center center;
+    z-index: 5;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+    background-color: red;
+    /* 默认颜色 */
+}
+/* 交互与高亮状态 */
+.map-wall:hover {
+    filter: brightness(1.5);
+    z-index: 20;
+}
+.marker.search-match,
+.map-wall.search-match {
+    border: 2px solid red;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
+    z-index: 20;
+}
+/* 墙体类型样式 */
+.map-wall.wall-breakable {
+    background: #20eb31;
+    border: 1px solid #fff;
+}
+.map-wall.wall-oneway {
+    background-color: #2980b9;
+    border: 1px solid #fff;
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
+    background-size: 10px 100%;
+}
+.map-wall.wall-oneway::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(16px * var(--scale, 0.5));
+    height: calc(16px * var(--scale, 0.5));
+    background-image: url('icons/arrow.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    pointer-events: none;
+}
+/* ===================================================================
+   3. 公共组件样式 (UI 元素统一重构)
+   =================================================================== */
+/* --- 基础按钮风格 (深色背景+边框+圆角) --- */
+.btn-minimize,
+.floating-btn,
+.search-row input,
+#btn-search-clear,
+.layer-btn,
+.layer-reset-btn,
+.icon-toggle-btn,
+.io-btn-group button,
+#btn-import,
+#btn-export,
+#btn-clear,
+.toggle-sub-btn,
+#path-panel button,
+#marker-dialog input,
+#marker-dialog textarea,
+#marker-dialog select,
+.type-btn,
+.dialog-buttons button {
+    border: 1px solid #555;
+    border-radius: 4px;
+    /* 默认圆角 */
+    box-sizing: border-box;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+/* --- 交互元素通用行为 --- */
+.btn-minimize,
+.floating-btn,
+#btn-search-clear,
+.layer-btn,
+.layer-reset-btn,
+.icon-toggle-btn,
+.io-btn-group button,
+#btn-import,
+#btn-export,
+#btn-clear,
+.toggle-sub-btn,
+#path-panel button,
+.type-btn,
+.sub-type-btn,
+.dialog-buttons button,
+.btn-insert-point,
+.btn-delete-point {
+    cursor: pointer;
+}
+/* --- 标准操作按钮 (统一内边距与字号) --- */
+.io-btn-group button,
+#btn-import,
+#btn-export,
+.toggle-sub-btn,
+#path-panel button,
+#marker-dialog input,
+#marker-dialog textarea,
+#marker-dialog select {
+    padding: 8px;
+    /* 统一高度感 */
+    font-size: 13px;
+}
+/* --- 颜色状态类 (合并颜色定义) --- */
+/* 绿色/成功 */
+.layer-btn.active,
+#path-panel #btn-path-toggle,
+.btn-insert-point,
+#btn-path-import {
+    background-color: #28a745;
+    color: white;
+}
+.layer-btn.active:hover,
+#path-panel #btn-path-toggle:hover,
+#btn-path-import:hover {
+    background-color: #218838;
+}
+/* 红色/危险 */
+#btn-clear,
+.btn-delete-point,
+#btn-path-clear,
+#menu-delete:hover {
+    color: white;
+    /* 默认文字白，除了 .btn-delete-point 后面会单独覆盖 */
+}
+#btn-clear,
+#btn-path-clear {
+    background-color: #dc3545;
+}
+#btn-clear:hover,
+#btn-path-clear:hover {
+    background-color: #e74c3c;
+}
+/* 统一悬浮红 */
+/* 蓝色/主要 */
+.icon-toggle-btn.active,
+.type-btn.active,
+.sub-type-btn.active,
+.floating-btn:hover,
+#btn-ok {
+    background-color: #007bff;
+    /* 统一蓝色系 */
+    color: white;
+    border-color: #0056b3;
+}
+/* 深色/默认 */
+.search-row input,
+.icon-toggle-btn,
+.toggle-sub-btn {
+    background-color: #2b2b2b;
+    /* 或 #333 */
+    color: #ccc;
+}
+.icon-toggle-btn:hover,
+.toggle-sub-btn:hover,
+#btn-search-clear:hover {
+    background-color: #444;
+    color: white;
+}
+/* ===================================================================
+   4. 侧边 UI 面板
+   =================================================================== */
+/* 面板通用属性 (合并 #path-panel 和 .side-panel) */
+.side-panel, #path-panel {
+    position: absolute;
+    top: 0;
+    height: 100vh;
+    background-color: rgba(30, 30, 30, 0.98);
+    backdrop-filter: blur(8px);
+    color: white;
+    z-index: 100;
+    padding: 15px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow-y: auto;
+}
+.side-panel {
+    width: 250px;
+}
+/* 面板位置 */
+.side-panel.left {
+    left: 0;
+    transform: translateX(0);
+}
+.side-panel.left.collapsed {
+    transform: translateX(-100%);
+}
+.side-panel.right {
+    right: 0;
+    transform: translateX(0);
+}
+.side-panel.right.collapsed {
+    transform: translateX(100%);
+}
+/* 路径面板 */
+#path-panel {
+    right: 0;
+    left: auto;
+    width: 280px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+/* 面板内部结构 */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    flex-shrink: 0;
+}
+.side-panel h3,
+#path-panel h3 {
+    margin: 0;
+    padding: 0;
+    text-align: left;
+}
+/* 最小化按钮 */
+.btn-minimize {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-weight: bold;
+}
+.btn-minimize:hover {
+    background: #444;
+    color: white;
+}
+/* 浮动打开按钮 */
+.floating-btn {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 90;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background-color: rgba(40, 40, 40, 0.95);
+    color: white;
+    font-size: 20px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    align-items: center;
+    justify-content: center;
+}
+.floating-btn.left {
+    left: 20px;
+}
+.floating-btn.right {
+    right: 20px;
+}
+.floating-btn:hover {
+    transform: translateY(-50%) scale(1.1);
+}
+/* --- 控制面板特定组件 --- */
+#control-panel hr {
+    border-top: 1px solid #555;
+    margin: 5px 0;
+}
+.panel-row {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 8px;
+}
+/* 搜索行 */
+.search-row {
+    gap: 8px;
+    align-items: center;
+}
+.search-row input {
+    flex: 2;
+    height: 36px;
+    width: 100px;
+    padding: 0 10px;
+}
+#btn-search-clear {
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+    text-align: center;
+    background-color: #444;
+    color: #ccc;
+}
+/* 图层按钮 */
+.layer-btn {
+    flex: 3;
+    padding: 6px;
+}
+.layer-reset-btn {
+    flex: 1;
+    background-color: #ffc107;
+    font-size: 12px;
+}
+/* 图标网格 */
+#icon-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin: 5px 0 10px 0;
+}
+.icon-toggle-btn {
+    font-size: 12px;
+    padding: 4px;
+    background: #333;
+    color: #ccc;
+}
+/* 导入/导出/操作组 */
+.io-btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 5px;
+}
+.io-btn-group button,
+#btn-import,
+#btn-export {
+    width: 100%;
+}
+/* #btn-clear 已在公共组件中定义颜色 */
+#btn-clear {
+    grid-column: 1 / -1;
+}
+.toggle-sub-btn.active {
+    background-color: #e67e22;
+    border-color: #d35400;
+    color: white;
+    font-weight: bold;
+}
+/* --- 路径面板特定组件 --- */
+#path-panel .panel-row {
+    gap: 8px;
+    align-items: stretch;
+}
+#path-panel #btn-path-toggle {
+    flex: 2;
+    font-weight: bold;
+}
+#path-panel #btn-path-autohide {
+    flex: 1;
+    font-size: 12px;
+}
+#path-panel .panel-header,
+#path-panel .panel-row,
+#path-panel .path-actions-bottom {
+    flex-shrink: 0;
+}
+.path-list-container {
+    flex-grow: 1;
+    min-height: 0;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+}
+#path-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0 5px;
+    margin: 0;
+    color: #ccc;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid #444;
+    border-radius: 4px;
+}
+#path-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 6px;
+    border-bottom: 1px solid #444;
+}
+#path-list li:last-child {
+    border-bottom: none;
+}
+/* 列表内小按钮 */
+.btn-insert-point,
+.btn-delete-point {
+    background: transparent;
+    border: none;
+    font-size: 14px;
+    padding: 0 5px;
+    font-weight: bold;
+}
+/* 颜色覆盖 */
+.btn-insert-point {
+    color: #28a745;
+}
+.btn-insert-point:hover {
+    color: #218838;
+}
+.btn-delete-point {
+    color: #ff6b6b;
+    margin-left: 5px;
+}
+.btn-delete-point:hover {
+    color: #ff0000;
+}
+/* 路径底部操作区 */
+.path-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.path-actions-bottom {
+    flex-shrink: 0;
+    padding-top: 10px;
+    border-top: 1px solid #555;
+}
+/* 路径按钮颜色特例 */
+#btn-path-export {
+    background-color: #17a2b8;
+}
+#btn-path-export:hover {
+    background-color: #138496;
+}
+#btn-path-undo {
+    background-color: #6c757d;
+}
+#btn-path-undo:hover {
+    background-color: #5a6268;
+}
+/* ===================================================================
+   5. 弹窗与表单
+   =================================================================== */
+#dialog-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 200;
+}
+#marker-dialog {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 15px 25px;
+    width: 300px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    z-index: 201;
+}
+#marker-dialog h3 {
+    margin: 0 0 15px 0;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+#marker-dialog input,
+#marker-dialog textarea,
+#marker-dialog select {
+    width: 100%;
+    margin-bottom: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+.coord-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+/* 类型切换组 */
+.type-toggle-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+}
+.type-btn {
+    flex: 1;
+    padding: 10px 0;
+    border: 1px solid #ddd;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    font-weight: bold;
+    color: #555;
+}
+.type-btn:hover {
+    background-color: #e2e6ea;
+}
+.type-btn.active {
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+/* 子类型切换组 */
+.sub-toggle-group {
+    display: flex;
+    gap: 1px;
+    margin-bottom: 10px;
+    background: #e9ecef;
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+.sub-type-btn {
+    flex: 1;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #495057;
+}
+.sub-type-btn.active {
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+/* 图标预览 */
+.icon-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 6px;
+    background: #f9f9f9;
+}
+#dialog-icon-preview {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    background: white;
+    border: 1px solid #ccc;
+}
+.dialog-buttons {
+    display: flex;
+    gap: 15px;
+}
+.dialog-buttons button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    color: white;
+}
+#btn-cancel {
+    background-color: #666;
+}
+/* ===================================================================
+   6. 悬浮提示与右键菜单
+   =================================================================== */
+#tooltip {
+    position: absolute;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 100;
+    white-space: pre-line;
+    max-width: 250px;
+    line-height: 1.4;
+}
+#global-tip {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+#context-menu {
+    display: none;
+    position: fixed;
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 300;
+    min-width: 120px;
+}
+.menu-item {
+    padding: 8px 15px;
+    cursor: pointer;
+    color: #333;
+}
+.menu-item:hover {
+    background-color: #f0f0f0;
+}
+#menu-delete:hover {
+    color: red;
+}
+#panel-wall-select {
+    display: none;
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+}
