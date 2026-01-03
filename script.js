@@ -3,15 +3,28 @@
     ===================================================================*/
 // 定义所有图标文件名
 const iconFiles = [
-    "特殊物品.png", "地图.png", "NPC.png",
-    "技能.png", "纹章.png", "竞技场.png",
-    "跳蚤.png", "钟道.png", "长椅.png",
-    "普通boss.png", "必要boss.png", "普通委托.png", "必要委托.png",
-    "纪念盒.png", "金属.png", "面具.png", "灵丝轴.png",
-    "任务物品.png", "工具.png", "念珠.png"
+    "地图.png", "NPC.png", "念珠.png", "长椅.png", "普通boss.png",
+    "技能.png", "纹章.png", "竞技场.png", "跳蚤.png", "钟道.png", 
+    "必要boss.png", "普通委托.png", "必要委托.png", "纪念盒.png", "金属.png", 
+    "面具.png", "灵丝轴.png", "任务物品.png", "工具.png", "特殊物品.png"
 ];
 // 小于此距离的父子连线会常驻显示，大于此距离的仅在悬停时显示
 const LINE_THRESHOLD = 100;
+const PATH_COLORS = [
+    '#ff0000',
+    '#00ff00',
+    '#00ffff',
+    '#ff00ff',
+    '#ffff00',
+    '#ff8800',
+    '#3949ab',
+    '#43a047',
+    '#639eceff',
+    '#2f00ffff',
+    '#00ffd5ff',
+    '#546e7a',
+    '#ffffff'
+];
 /*  ===================================================================
     2. DOM 元素获取
     ===================================================================*/
@@ -75,6 +88,8 @@ const pathList = document.getElementById('path-list');
 const btnPathImport = document.getElementById('btn-path-import');
 const pathFileInput = document.getElementById('path-file-input');
 const btnPathAutoHide = document.getElementById('btn-path-autohide');
+const btnPathTeleport = document.getElementById('btn-path-teleport');
+const pathTotalLenEl = document.getElementById('path-total-len');
 /*  ===================================================================
     3. 全局状态变量
     ===================================================================*/
@@ -91,6 +106,7 @@ let currentTargetMarkerData = null;
 let editingMarkerData = null;
 let hoveredMarkerData = null;
 let bindingChildData = null;
+let tipTimer = null;
 // 筛选与UI状态
 let layerVisibility = { 1: true, 2: true, 3: true };
 let iconVisibility = {};
@@ -108,6 +124,7 @@ let currentMarkerType = 'icon';
 let currentWallType = 'wall-breakable';
 let hideDimmedMarkers = false;
 let hideWalls = true;
+let isTeleport = false;
 // 路径, 性能与交互状态
 let recordedPath = [];
 let renderRequestId = null;
@@ -204,16 +221,50 @@ function render() {
     });
     // 绘制路径线
     if (recordedPath.length > 1) {
-        ctx.beginPath();
-        ctx.strokeStyle = '#ff0000';
         ctx.lineWidth = 3;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-        for (let i = 0; i < recordedPath.length - 1; i++) {
-            const p1 = toScreen(recordedPath[i].x, recordedPath[i].y);
-            const p2 = toScreen(recordedPath[i + 1].x, recordedPath[i + 1].y);
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
+        let colorIndex = 0;
+        ctx.beginPath();
+        ctx.strokeStyle = PATH_COLORS[0];
+        const startP = toScreen(recordedPath[0].x, recordedPath[0].y);
+        ctx.moveTo(startP.x, startP.y);
+        for (let i = 1; i < recordedPath.length; i++) {
+            const curr = recordedPath[i];
+            const prev = recordedPath[i - 1];
+            const currScreen = toScreen(curr.x, curr.y);
+            const prevScreen = toScreen(prev.x, prev.y);
+            if (curr.isTeleport) {
+                ctx.stroke();
+                let isHovering = false;
+                if (hoveredMarkerData) {
+                    if ((curr.markerId && hoveredMarkerData.id === curr.markerId) ||
+                        (prev.markerId && hoveredMarkerData.id === prev.markerId)) {
+                        isHovering = true;
+                    }
+                }
+                if (isHovering) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(prevScreen.x, prevScreen.y);
+                    ctx.lineTo(currScreen.x, currScreen.y);
+                    ctx.setLineDash([5, 5]);
+                    ctx.strokeStyle = ctx.strokeStyle;
+                    ctx.globalAlpha = 0.6;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                // =================================
+                colorIndex = (colorIndex + 1) % PATH_COLORS.length;
+                ctx.strokeStyle = PATH_COLORS[colorIndex];
+                ctx.beginPath();
+                ctx.moveTo(currScreen.x, currScreen.y);
+                // 
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.fillRect(currScreen.x - 6, currScreen.y - 6, 12, 12);
+            } else {
+                ctx.lineTo(currScreen.x, currScreen.y);
+            }
         }
         ctx.stroke();
     }
@@ -352,7 +403,6 @@ function createMarkerDOM(data, fragment = null) {
         if (!isRecordingPath || (isRecordingPath && isPathAutoHide)) {
             data.dimmed = !data.dimmed;
             el.style.opacity = data.dimmed ? 0.3 : 1;
-            // 同步子标记的状态
             markersData.forEach(child => {
                 if (child.parentId === data.id) {
                     child.dimmed = data.dimmed;
@@ -374,8 +424,15 @@ function createMarkerDOM(data, fragment = null) {
                 x: data.x, 
                 y: data.y, 
                 name: data.name, 
-                markerId: data.id 
+                markerId: data.id,
+                isTeleport: isTeleport
             };
+            if (isTeleport) {
+                isTeleport = false;
+                btnPathTeleport.classList.remove('active');
+                container.style.cursor = "default";
+                newPoint.name += " (传送)";
+            }
             // 插入模式
             if (isPathInsertMode) {
                 recordedPath.splice(pathInsertIndex, 0, newPoint);
@@ -530,8 +587,15 @@ container.addEventListener('click', (e) => {
     const newPoint = {
         x: finalX,
         y: finalY,
-        name: "自定义点"
+        name: isTeleport ? "传送点 (自定义)" : "自定义点",
+        isTeleport: isTeleport
     };
+    // 如果消耗了传送标记，重置状态
+    if (isTeleport) {
+        isTeleport = false;
+        btnPathTeleport.classList.remove('active');
+        container.style.cursor = "default";
+    }
     if (isPathInsertMode) {
         recordedPath.splice(pathInsertIndex, 0, newPoint);
         pathInsertIndex++;
@@ -565,12 +629,26 @@ btnPathToggle.onclick = () => {
     } else {
         btnPathToggle.textContent = "▶ 开始记录";
         btnPathToggle.style.backgroundColor = "";
+        showTip("已停止记录");
+    }
+};
+btnPathTeleport.onclick = () => {
+    if (!isRecordingPath) {
+        showTip("请先开始记录路径！");
+        return;
+    }
+    isTeleport = !isTeleport;
+    btnPathTeleport.classList.toggle('active', isTeleport);
+    if (isTeleport) {
+        showTip("传送模式：请点击下一个点");
+    } else {
+        showTip("已取消传送模式。");
     }
 };
 btnPathAutoHide.onclick = () => {
     isPathAutoHide = !isPathAutoHide;
     btnPathAutoHide.classList.toggle('active', isPathAutoHide);
-    btnPathAutoHide.textContent = isPathAutoHide ? '自动隐藏' : '仅记录';
+    btnPathAutoHide.textContent = isPathAutoHide ? '默认' : '仅记录';
 };
 // 撤销上一个路径点
 if (btnPathUndo) {
@@ -617,23 +695,47 @@ btnPathExport.onclick = () => {
     const content = JSON.stringify(validData, null, 2);
     downloadFile(content, "path.json", "application/json");
 };
+// 计算路径总长度 (像素单位)，自动跳过传送跳跃
+function calculatePathLength() {
+    if (recordedPath.length < 2) return 0;
+    let totalDist = 0;
+    for (let i = 0; i < recordedPath.length - 1; i++) {
+        const p1 = recordedPath[i];
+        const p2 = recordedPath[i + 1];
+        if (p2.isTeleport) {
+            continue;
+        }
+        const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        totalDist += dist;
+    }
+    return Math.round(totalDist); // 取整
+}
 // 刷新路径面板的UI
 function updatePathListUI() {
     pathList.innerHTML = '';
+    const totalLen = calculatePathLength();
+    if (pathTotalLenEl) pathTotalLenEl.textContent = `当前总长: ${totalLen.toLocaleString()}`;
     const visiblePoints = recordedPath.filter(p => p.markerId);
     if (visiblePoints.length === 0) {
         pathList.innerHTML = '<li>(暂无标记记录)</li>';
     }
     let displayIndex = 0;
+    let listColorIndex = 0;
     recordedPath.forEach((p, realIndex) => {
-        if (!p.markerId) {
-            return;
+        if (p.isTeleport && realIndex > 0) {
+            listColorIndex = (listColorIndex + 1) % PATH_COLORS.length;
         }
+        const currentColor = PATH_COLORS[listColorIndex];
+        if (!p.markerId) return;
         displayIndex++;
         const li = document.createElement('li');
+        li.style.borderLeft = `5px solid ${currentColor}`;
+        li.style.paddingLeft = "8px";
         const span = document.createElement('span');
-        span.textContent = `${displayIndex}. ${p.name}`;
+        const isTp = p.isTeleport ? " 🌀" : "";
+        span.textContent = `${displayIndex}. ${p.name}${isTp}`;
         const btnContainer = document.createElement('div');
+        // 插入按钮
         const insertBtn = document.createElement('button');
         insertBtn.textContent = "⤵";
         insertBtn.className = "btn-insert-point";
@@ -652,14 +754,13 @@ function updatePathListUI() {
         delBtn.className = "btn-delete-point";
         delBtn.title = "删除此点";
         delBtn.onclick = () => {
-            // 恢复标记的高亮/透明度状态
+            // 恢复高亮逻辑...
             const pointToDelete = recordedPath[realIndex];
             if (pointToDelete && pointToDelete.markerId) {
                 const targetMarker = markersData.find(m => m.id === pointToDelete.markerId);
                 if (targetMarker && targetMarker.dimmed) {
                     targetMarker.dimmed = false;
                     if (targetMarker.element) targetMarker.element.style.opacity = 1;
-                    // 同步子标记
                     markersData.forEach(child => {
                         if (child.parentId === targetMarker.id) {
                             child.dimmed = false;
@@ -947,7 +1048,7 @@ function checkLogicVisibility() {
     const query = searchInput.value.trim().toLowerCase();
     markersData.forEach(data => {
         if (!data.element) return;
-        // 隐藏墙
+        // 墙
         if (data.type === 'wall' && hideWalls) {
             data._logicVisible = false;
             if (data.element.classList.contains('search-match')) {
@@ -955,13 +1056,13 @@ function checkLogicVisibility() {
             }
             return;
         }
-        //
+        // 图层和图标
         const isLayerOpen = layerVisibility[data.layer];
         let isIconOpen = true;
         if (data.type !== 'wall') {
             isIconOpen = iconVisibility[data.icon] !== false;
         }
-        //
+        // 搜索匹配
         let isMatch = true;
         if (query) {
             const nameMatch =
@@ -975,13 +1076,12 @@ function checkLogicVisibility() {
             isMatch = nameMatch || iconMatch;
         }
         //
-        const shouldHideDimmed = hideDimmedMarkers && data.dimmed;
+        const isBell = data.icon && data.icon.includes('钟道');
+        const shouldHideDimmed = hideDimmedMarkers && data.dimmed && !isBell;
         const iconPass = query ? true : isIconOpen;
         data._logicVisible = (isLayerOpen && iconPass && isMatch) && !shouldHideDimmed;
-        if (query && isMatch && data._logicVisible)
-            data.element.classList.add('search-match');
-        else
-            data.element.classList.remove('search-match');
+        if (query && isMatch && data._logicVisible) data.element.classList.add('search-match');
+        else data.element.classList.remove('search-match');
     });
 }
 /* ===================================================================
@@ -1130,8 +1230,15 @@ function loadMarkers() {
 function showTip(text) {
     globalTip.textContent = text;
     globalTip.style.opacity = 1;
-    setTimeout(() => {
-        if (!isBindingMode && !isRecordingPath && !isMovingMarkerMode) globalTip.style.opacity = 0;
+    if (tipTimer) {
+        clearTimeout(tipTimer);
+        tipTimer = null;
+    }
+    tipTimer = setTimeout(() => {
+        const isModeActive = isBindingMode || isRecordingPath || isMovingMarkerMode || isTeleport;
+        if (!isModeActive) {
+            globalTip.style.opacity = 0;
+        }
     }, 2000);
 }
 // 面板折叠功能

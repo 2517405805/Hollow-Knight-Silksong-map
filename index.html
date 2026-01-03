@@ -107,11 +107,15 @@
     <div id="path-panel" class="side-panel right collapsed">
         <div class="panel-header">
             <h3>路径记录</h3>
+            <span id="path-total-len" style="font-size:12px; color:#aaa; margin-left:10px; font-weight:normal;">
+                当前总长: 0
+            </span>
             <button id="btn-hide-path" class="btn-minimize" title="收起">◀</button>
         </div>
         <div class="panel-row" style="margin-bottom: 10px;">
             <button id="btn-path-toggle">▶ 开始记录</button>
-            <button id="btn-path-autohide" class="toggle-sub-btn active">隐藏标记</button>
+            <button id="btn-path-teleport" title="下一次点击将断开连线并换色">传送</button>
+            <button id="btn-path-autohide" class="toggle-sub-btn active">默认</button>
         </div>
         <div class="path-list-container">
             <ul id="path-list">
