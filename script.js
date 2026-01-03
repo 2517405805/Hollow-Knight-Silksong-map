@@ -431,7 +431,6 @@ function createMarkerDOM(data, fragment = null) {
                 isTeleport = false;
                 btnPathTeleport.classList.remove('active');
                 container.style.cursor = "default";
-                newPoint.name += " (传送)";
             }
             // 插入模式
             if (isPathInsertMode) {
@@ -711,8 +710,10 @@ function calculatePathLength() {
     return Math.round(totalDist); // 取整
 }
 // 刷新路径面板的UI
-function updatePathListUI() {
+function updatePathListUI(maintainScroll = false) {
+    const currentScrollTop = pathList.scrollTop;
     pathList.innerHTML = '';
+    // 刷新总长度
     const totalLen = calculatePathLength();
     if (pathTotalLenEl) pathTotalLenEl.textContent = `当前总长: ${totalLen.toLocaleString()}`;
     const visiblePoints = recordedPath.filter(p => p.markerId);
@@ -722,10 +723,12 @@ function updatePathListUI() {
     let displayIndex = 0;
     let listColorIndex = 0;
     recordedPath.forEach((p, realIndex) => {
+        // 颜色计算逻辑
         if (p.isTeleport && realIndex > 0) {
             listColorIndex = (listColorIndex + 1) % PATH_COLORS.length;
         }
         const currentColor = PATH_COLORS[listColorIndex];
+        // 过滤自定义点
         if (!p.markerId) return;
         displayIndex++;
         const li = document.createElement('li');
@@ -735,7 +738,7 @@ function updatePathListUI() {
         const isTp = p.isTeleport ? " 🌀" : "";
         span.textContent = `${displayIndex}. ${p.name}${isTp}`;
         const btnContainer = document.createElement('div');
-        // 插入按钮
+        // --- 插入按钮 ---
         const insertBtn = document.createElement('button');
         insertBtn.textContent = "⤵";
         insertBtn.className = "btn-insert-point";
@@ -748,13 +751,13 @@ function updatePathListUI() {
             btnPathToggle.style.backgroundColor = "#ffc107";
             showTip(`插入模式：将在 "${p.name}" 后插入`);
         };
-        // 删除按钮
+        // --- 删除按钮 ---
         const delBtn = document.createElement('button');
         delBtn.textContent = "✖";
         delBtn.className = "btn-delete-point";
         delBtn.title = "删除此点";
         delBtn.onclick = () => {
-            // 恢复高亮逻辑...
+            // 恢复高亮逻辑
             const pointToDelete = recordedPath[realIndex];
             if (pointToDelete && pointToDelete.markerId) {
                 const targetMarker = markersData.find(m => m.id === pointToDelete.markerId);
@@ -770,8 +773,10 @@ function updatePathListUI() {
                     saveMarkers();
                 }
             }
+            // 删除数据
             recordedPath.splice(realIndex, 1);
-            updatePathListUI();
+            // [关键修改] 删除后刷新，传入 true，保持滚动条位置不动
+            updatePathListUI(true);
             triggerRender();
         };
         btnContainer.appendChild(insertBtn);
@@ -780,7 +785,11 @@ function updatePathListUI() {
         li.appendChild(btnContainer);
         pathList.appendChild(li);
     });
-    pathList.scrollTop = pathList.scrollHeight;
+    if (maintainScroll) {
+        pathList.scrollTop = currentScrollTop;
+    } else {
+        pathList.scrollTop = pathList.scrollHeight;
+    }
 }
 /* ===================================================================
     9. UI 交互逻辑
