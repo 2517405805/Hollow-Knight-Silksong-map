@@ -371,10 +371,18 @@ button.active {
     background-color: #138496;
 }
 #btn-open-batch {
-    grid-column: 1 / -1;
+    grid-column: auto;
     background-color: #6c757d;
     color: var(--text-inverse);
     border-color: #545b62;
+}
+#btn-reset-default {
+    background-color: #d63384;
+    border-color: #c21766;
+    color: white;
+}
+#btn-reset-default:hover {
+    background-color: #c21766;
 }
 #btn-clear {
     grid-column: 1 / -1;

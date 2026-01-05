@@ -51,6 +51,7 @@ const wallAngleInput = document.getElementById('dialog-wall-angle');
 const controlPanel = document.getElementById('control-panel');
 const btnExport = document.getElementById('btn-export');
 const btnImport = document.getElementById('btn-import');
+const btnResetDefault = document.getElementById('btn-reset-default');
 const btnClear = document.getElementById('btn-clear');
 const fileInput = document.getElementById('file-input');
 const searchInput = document.getElementById('search-input');
@@ -787,6 +788,11 @@ btnToggleWalls.onclick = () => {
 };
 btnWallBreakable.onclick = () => setWallType('wall-breakable');
 btnWallOneway.onclick = () => setWallType('wall-oneway');
+btnResetDefault.onclick = () => {
+    if (confirm("确定要【丢弃当前所有修改】并恢复到 default.json 的预设数据吗？\n此操作不可撤销！")) {
+        loadDefaultData();
+    }
+};
 btnPathToggle.onclick = () => {
     if (isPathInsertMode) {
         isPathInsertMode = false;
@@ -1372,15 +1378,57 @@ function loadMarkers() {
     if (str) {
         try {
             const arr = JSON.parse(str);
+            if (arr.length === 0) {
+                console.log("加载了本地缓存（空数据）");
+            } else {
+                const fragment = document.createDocumentFragment();
+                arr.forEach(d => {
+                    markersData.push(d);
+                    createMarkerDOM(d, fragment);
+                });
+                container.appendChild(fragment);
+                checkLogicVisibility();
+            }
+        } catch (e) { console.error(e); }
+    } else {
+        console.log("未检测到本地存档，正在请求默认数据...");
+        loadDefaultData();
+    }
+}
+// 异步加载默认数据
+function loadDefaultData() {
+    fetch('default.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("无法读取默认文件 (HTTP " + response.status + ")");
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!Array.isArray(data)) throw new Error("JSON 格式不正确，应为数组");
+            markersData.forEach(m => m.element && m.element.remove());
+            markersData = [];
             const fragment = document.createDocumentFragment();
-            arr.forEach(d => {
-                markersData.push(d);
-                createMarkerDOM(d, fragment);
+            data.forEach(d => {
+                const clean = {
+                    ...d,
+                    id: d.id || Date.now() + Math.random(),
+                    layer: d.layer || "1"
+                };
+                markersData.push(clean);
+                createMarkerDOM(clean, fragment);
             });
             container.appendChild(fragment);
+            saveMarkers();
             checkLogicVisibility();
-        } catch (e) { console.error(e); }
-    }
+            triggerRender();
+            console.log(`成功加载默认数据：${data.length} 条`);
+            showTip(`已重置为默认数据 (${data.length} 个标记)`);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("加载默认数据失败！\n请检查：\n1. default.json 文件是否存在？\n2. 是否使用了本地服务器打开？(直接双击 html 无法读取本地 json)");
+        });
 }
 function saveIconVisibility() {
     localStorage.setItem('silkSongIconVisibility', JSON.stringify(iconVisibility));
