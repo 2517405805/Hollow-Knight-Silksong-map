@@ -2,120 +2,81 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 禁止用户缩放页面，由JS接管地图缩放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Silksong 互动地图</title>
-    <!-- 引用 CSS 文件 -->
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="favicon.png" type="image/png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- 核心地图容器 -->
     <div id="map-container">
-        <!-- 请确保 map.avif 文件在同级目录下 -->
-        <img id="game-map" src="map.avif" alt="丝之歌地图">
-        <!-- 画布：用于画父子连线和路径记录 -->
+        <!-- 游戏底图 -->
+        <img id="game-map" src="map.avif" alt="丝之歌地图" draggable="false">
+        <!-- 绘图层 (连线、路径) -->
         <canvas id="lines-canvas"></canvas>
     </div>
+    <!-- 全局浮动提示 -->
     <div id="tooltip"></div>
     <div id="global-tip"></div>
-    <!-- 标记弹窗 -->
-    <div id="marker-dialog">
-        <h3>添加/编辑</h3>
-        <div class="type-toggle-group">
-            <button id="btn-type-icon" class="type-btn active">图标模式</button>
-            <button id="btn-type-wall" class="type-btn">墙/门模式</button>
-        </div>
-        <input type="text" id="dialog-name" placeholder="请输入名称" aria-label="名称">
-        <textarea id="dialog-intro" rows="2" placeholder="简介（可选）" aria-label="简介"></textarea>
-        <div class="coord-row">
-            <input type="number" id="dialog-x" placeholder="X坐标" aria-label="X坐标">
-            <input type="number" id="dialog-y" placeholder="Y坐标" aria-label="Y坐标">
-        </div>
-        <select id="dialog-layer" aria-label="所属图层">
-            <option value="1">属于：第一幕</option>
-            <option value="2">属于：第二幕</option>
-            <option value="3">属于：第三幕</option>
-        </select>
-        <!-- 区域A：图标选择 -->
-        <div id="panel-icon-select" class="icon-selector-row">
-            <img id="dialog-icon-preview" src="" alt="预览">
-            <select id="dialog-icon-select" aria-label="选择图标"></select>
-        </div>
-        <!-- 区域B：墙体参数 -->
-        <div id="panel-wall-select">
-            <div id="wall-type-toggle" class="sub-toggle-group">
-                <button id="btn-wall-breakable" class="sub-type-btn active">易碎</button>
-                <button id="btn-wall-oneway" class="sub-type-btn">单向</button>
-            </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <label for="dialog-wall-len">长度:</label>
-                <input type="number" id="dialog-wall-len" style="margin:0; flex:1;">
-                <label for="dialog-wall-angle">朝向:</label>
-                <select id="dialog-wall-angle" style="margin:0; flex:1;">
-                    <option value="270">左</option>
-                    <option value="90">右</option>
-                    <option value="0">上</option>
-                    <option value="180">下</option>
-                </select>
-            </div>
-        </div>
-        <div class="dialog-buttons">
-            <button id="btn-ok">确定</button>
-            <button id="btn-cancel">取消</button>
-        </div>
-    </div>
-    <div id="dialog-overlay"></div>
+    <!-- 悬浮按钮组 -->
     <button id="btn-show-control" class="floating-btn left" title="展开菜单">☰</button>
     <button id="btn-show-path" class="floating-btn right" title="展开路径">☰</button>
-    <!-- 左侧控制面板 -->
-    <div id="control-panel" class="side-panel left">
+    <button id="btn-show-log" class="floating-btn right" style="top: 70px;" title="修改日志">📝</button>
+    <!-- 左侧：功能控制面板 -->
+    <div id="control-panel" class="side-panel left collapsed">
         <div class="panel-header">
             <h3>功能菜单</h3>
             <button id="btn-hide-control" class="btn-minimize" title="收起">◀</button>
         </div>
-        <div class="panel-row search-row">
-            <input type="text" id="search-input" placeholder="搜索标记..." aria-label="搜索标记">
-            <button id="btn-search-clear" title="清除搜索">✖</button>
-        </div>
-        <div id="layer-controls">
-            <div class="panel-row">
-                <button class="layer-btn active" data-layer="1">第一幕</button>
-                <button class="layer-reset-btn" data-layer="1" title="重置透明度">重置</button>
+        <!-- 搜索与图层 -->
+        <div class="panel-section">
+            <div class="panel-row search-row">
+                <input type="text" id="search-input" placeholder="搜索标记..." aria-label="搜索">
+                <button id="btn-search-clear" title="清除">✖</button>
             </div>
-            <div class="panel-row">
-                <button class="layer-btn active" data-layer="2">第二幕</button>
-                <button class="layer-reset-btn" data-layer="2" title="重置透明度">重置</button>
-            </div>
-            <div class="panel-row">
-                <button class="layer-btn active" data-layer="3">第三幕</button>
-                <button class="layer-reset-btn" data-layer="3" title="重置透明度">重置</button>
+            <div id="layer-controls">
+                <!-- 由JS动态生成或保持静态 -->
+                <div class="panel-row"><button class="layer-btn active" data-layer="1" style="flex: 2;">第一幕</button><button
+                        class="layer-reset-btn" data-layer="1" style="flex: 1;">重置</button></div>
+                <div class="panel-row"><button class="layer-btn active" data-layer="2" style="flex: 2;">第二幕</button><button
+                        class="layer-reset-btn" data-layer="2" style="flex: 1;">重置</button></div>
+                <div class="panel-row"><button class="layer-btn active" data-layer="3" style="flex: 2;">第三幕</button><button
+                        class="layer-reset-btn" data-layer="3" style="flex: 1;">重置</button></div>
             </div>
         </div>
-        <h3>标记类型</h3>
+        <h3>标记筛选</h3>
         <hr>
         <div id="icon-controls"></div>
-        <h3>功能按钮</h3>
+        <h3>数据与操作</h3>
         <hr>
         <div class="io-btn-group">
-            <button id="btn-import">导入</button>
-            <button id="btn-export">导出</button>
-            <button id="btn-toggle-walls" class="toggle-sub-btn">显示墙体</button>
-            <button id="btn-toggle-dimmed" class="toggle-sub-btn">隐藏已完成</button>
-            <button id="btn-clear">删除</button>
+            <button id="btn-toggle-walls" class="toggle-sub-btn">墙体</button>
+            <button id="btn-toggle-dimmed" class="toggle-sub-btn">已完成</button>
+            <button id="btn-import">导入数据</button>
+            <button id="btn-export">导出数据</button>
+            <button id="btn-open-batch">批量修改</button>
+            <button id="btn-clear" class="btn-danger">删除所有</button>
         </div>
         <input type="file" id="file-input" style="display: none;" accept=".json">
     </div>
-    <!-- 路径记录面板 -->
+    <!-- 右侧：路径记录面板 -->
     <div id="path-panel" class="side-panel right collapsed">
         <div class="panel-header">
             <h3>路径记录</h3>
-            <span id="path-total-len" style="font-size:12px; color:#aaa; margin-left:10px; font-weight:normal;">
-                当前总长: 0
-            </span>
-            <button id="btn-hide-path" class="btn-minimize" title="收起">◀</button>
+            <span id="path-total-len" class="header-info">总长: 0</span>
+            <button id="btn-hide-path" class="btn-minimize" title="收起">▶</button>
         </div>
-        <div class="panel-row" style="margin-bottom: 10px;">
+        <!-- 第一行：主控开关 -->
+        <div class="panel-row">
             <button id="btn-path-toggle">▶ 开始记录</button>
-            <button id="btn-path-teleport" title="下一次点击将断开连线并换色">传送</button>
-            <button id="btn-path-autohide" class="toggle-sub-btn active">默认</button>
+            <button id="btn-path-autohide" class="toggle-sub-btn" style="flex: 1;" title="点击标记后是否自动隐藏">仅记录</button>
+        </div>
+        <!-- 第二行：传送相关 -->
+        <div class="panel-row">
+            <button id="btn-path-teleport" class="toggle-sub-btn active" style="flex: 2;" title="下一次点击记录为传送点">传送</button>
+            <button id="btn-path-color" class="toggle-sub-btn active" style="flex: 1;" title="传送后是否切换线条颜色">换色</button>
         </div>
         <div class="path-list-container">
             <ul id="path-list">
@@ -124,12 +85,123 @@
         </div>
         <div class="path-actions-bottom">
             <div class="path-actions">
-                <button id="btn-path-import">导入 JSON</button>
-                <button id="btn-path-export">导出 JSON</button>
+                <button id="btn-path-import">导入路径</button>
+                <button id="btn-path-export">导出路径</button>
                 <button id="btn-path-undo">撤销</button>
-                <button id="btn-path-clear">清空</button>
+                <button id="btn-path-clear" class="btn-danger">清空</button>
             </div>
             <input type="file" id="path-file-input" style="display: none;" accept=".json">
+        </div>
+    </div>
+    <!-- 右侧：日志面板 -->
+    <div id="log-panel" class="side-panel right collapsed">
+        <div class="panel-header">
+            <h3>修改日志</h3>
+            <button id="btn-hide-log" class="btn-minimize" title="收起">▶</button>
+        </div>
+        <div class="panel-row">
+            <button id="btn-clear-log" style="width:100%">清空日志</button>
+        </div>
+        <div class="path-list-container">
+            <ul id="log-list">
+                <li>(暂无操作记录)</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 弹窗：新建/编辑标记 -->
+    <div id="dialog-overlay"></div>
+    <div id="marker-dialog">
+        <h3>添加/编辑</h3>
+        <div class="type-toggle-group">
+            <button id="btn-type-icon" class="type-btn active">图标模式</button>
+            <button id="btn-type-wall" class="type-btn">墙/门模式</button>
+        </div>
+        <input type="text" id="dialog-name" placeholder="名称" autocomplete="off">
+        <textarea id="dialog-intro" rows="2" placeholder="简介（可选）"></textarea>
+        <div class="coord-row">
+            <input type="number" id="dialog-x" placeholder="X">
+            <input type="number" id="dialog-y" placeholder="Y">
+        </div>
+        <select id="dialog-layer">
+            <option value="1">属于：第一幕</option>
+            <option value="2">属于：第二幕</option>
+            <option value="3">属于：第三幕</option>
+        </select>
+        <!-- 模式A: 图标 -->
+        <div id="panel-icon-select" class="icon-selector-row">
+            <img id="dialog-icon-preview" src="" alt="预览">
+            <select id="dialog-icon-select"></select>
+        </div>
+        <!-- 模式B: 墙体 -->
+        <div id="panel-wall-select">
+            <div id="wall-type-toggle" class="sub-toggle-group">
+                <button id="btn-wall-breakable" class="sub-type-btn active">易碎</button>
+                <button id="btn-wall-oneway" class="sub-type-btn">单向</button>
+            </div>
+            <div class="flex-row">
+                <label>长度 <input type="number" id="dialog-wall-len"></label>
+                <label>角度 <select id="dialog-wall-angle">
+                        <option value="0">上</option>
+                        <option value="90">右</option>
+                        <option value="180">下</option>
+                        <option value="270">左</option>
+                    </select></label>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="btn-ok" class="btn-primary">确定</button>
+            <button id="btn-cancel">取消</button>
+        </div>
+    </div>
+    <!-- 弹窗：批量操作 -->
+    <div id="batch-dialog" class="dialog-box">
+        <h3>批量标记管理</h3>
+        <!-- 1. 筛选区域 -->
+        <div class="batch-section">
+            <label class="section-title">第一步：筛选目标</label>
+            <div class="flex-row">
+                <!-- 筛选图标类型 -->
+                <select id="batch-filter-icon">
+                    <option value="all">所有类型</option>
+                    <option value="wall">仅墙体</option>
+                    <!-- JS会在这里填充具体图标选项 -->
+                </select>
+                <!-- 筛选名称 -->
+                <input type="text" id="batch-filter-name" placeholder="名称包含... (留空则匹配所有)">
+            </div>
+            <div id="batch-match-info" class="info-text">当前选中: 0 个</div>
+        </div>
+        <hr>
+        <!-- 2. 编辑区域 -->
+        <div class="batch-section">
+            <label class="section-title">第二步：选择要批量修改的属性</label>
+            <div class="batch-edit-row">
+                <input type="checkbox" id="chk-batch-name">
+                <label for="chk-batch-name">统一名称</label>
+                <input type="text" id="input-batch-name" disabled placeholder="输入新名称">
+            </div>
+            <div class="batch-edit-row">
+                <input type="checkbox" id="chk-batch-layer">
+                <label for="chk-batch-layer">统一图层</label>
+                <select id="input-batch-layer" disabled>
+                    <option value="1">第一幕</option>
+                    <option value="2">第二幕</option>
+                    <option value="3">第三幕</option>
+                </select>
+            </div>
+            <div class="batch-edit-row">
+                <input type="checkbox" id="chk-batch-icon">
+                <label for="chk-batch-icon">统一图标</label>
+                <select id="input-batch-icon" disabled>
+                    <!-- JS会在这里填充具体图标选项 -->
+                </select>
+            </div>
+        </div>
+        <!-- 3. 按钮区域 -->
+        <div class="dialog-buttons">
+            <button id="btn-batch-apply" class="btn-primary">执行修改</button>
+            <button id="btn-batch-delete" class="btn-danger">删除选中</button>
+            <button id="btn-close-batch">关闭</button>
         </div>
     </div>
     <!-- 右键菜单 -->
@@ -138,9 +210,9 @@
         <div class="menu-item" id="menu-move">移动位置</div>
         <div class="menu-item" id="menu-bind">绑定父标记</div>
         <div class="menu-item" id="menu-unbind">取消绑定</div>
-        <div class="menu-item" id="menu-delete">删除标记</div>
+        <div class="menu-item delete" id="menu-delete">删除标记</div>
     </div>
-    <!-- 引用 JS -->
+    <button id="btn-global-theme" title="切换亮/暗色主题">◑</button>
     <script src="script.js"></script>
 </body>
 </html>

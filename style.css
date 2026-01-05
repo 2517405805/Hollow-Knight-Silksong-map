@@ -1,30 +1,92 @@
 /* ===================================================================
-   1. 全局基础与容器
+   1. 全局变量配置 (Variables & Theme)
+   =================================================================== */
+:root {
+    /* --- 核心变量：默认暗色 (Dark Theme Default) --- */
+    --bg-canvas: #000000;
+    /* 整体背景 */
+    --bg-panel: rgba(30, 30, 30, 0.96);
+    /* 面板/弹窗背景 */
+    --bg-input: #222222;
+    /* 输入框背景 */
+    --bg-hover: #3d3d3d;
+    /* 悬停/高亮背景 */
+    --text-main: #eeeeee;
+    /* 主文字 */
+    --text-muted: #aaaaaa;
+    /* 次要文字 */
+    --text-inverse: #ffffff;
+    /* 反白文字 */
+    --border-color: #555555;
+    /* 边框颜色 */
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    /* 阴影 */
+    --backdrop-blur: 10px;
+    /* 毛玻璃强度 */
+    --btn-bg: #333333;
+    /* 按钮背景 */
+    --btn-bg-hover: #444444;
+    /* 按钮悬停 */
+    --btn-text: #cccccc;
+    /* 按钮文字 */
+    /* --- 功能色 (Functional Colors) --- */
+    --color-primary: #007bff;
+    --color-primary-dark: #0056b3;
+    --color-success: #28a745;
+    --color-success-hover: #218838;
+    --color-danger: #dc3545;
+    --color-danger-hover: #c82333;
+    --color-warning: #ffc107;
+    --color-info: #17a2b8;
+    --color-purple: #6f42c1;
+    --color-purple-hover: #5a32a3;
+}
+/* --- 亮色主题 (Light Theme Override) --- */
+[data-theme="light"] {
+    --bg-canvas: #f0f2f5;
+    --bg-panel: rgba(255, 255, 255, 0.98);
+    --bg-input: #ffffff;
+    --bg-hover: #f1f1f1;
+    --text-main: #333333;
+    --text-muted: #666666;
+    --text-inverse: #ffffff;
+    --border-color: #cccccc;
+    --shadow-color: rgba(0, 0, 0, 0.15);
+    --btn-bg: #f8f9fa;
+    --btn-bg-hover: #e2e6ea;
+    --btn-text: #333333;
+}
+/* ===================================================================
+   2. 基础重置与布局
    =================================================================== */
 body {
     margin: 0;
     overflow: hidden;
-    background-color: #000;
-    font-family: sans-serif;
+    background-color: var(--bg-canvas);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-main);
+    user-select: none;
+    transition: background-color 0.3s, color 0.3s;
 }
+/* ===================================================================
+   3. 地图核心容器
+   =================================================================== */
 #map-container {
     width: 100vw;
     height: 100vh;
     position: relative;
     overflow: hidden;
     touch-action: none;
+    background-color: #000;
 }
 #game-map {
     position: absolute;
     top: 0;
     left: 0;
     transform-origin: top left;
-    user-select: none;
-    -webkit-user-drag: none;
+    will-change: transform;
+    pointer-events: none;
 }
-/* ===================================================================
-   2. 地图元素 (画布、标记、墙)
-   =================================================================== */
 #lines-canvas {
     position: absolute;
     top: 0;
@@ -34,252 +96,143 @@ body {
     pointer-events: none;
     z-index: 1;
 }
-.marker,
-.map-wall {
-    position: absolute;
-    cursor: pointer;
-    will-change: transform, opacity;
-}
+/* ===================================================================
+   4. 标记与墙体 (Map Elements)
+   =================================================================== */
 .marker {
+    position: absolute;
     transform: translate(-50%, -50%);
     z-index: 10;
-    object-fit: contain;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
 }
 .map-wall {
-    transform-origin: center center;
+    position: absolute;
     z-index: 5;
+    transform-origin: center center;
+    cursor: pointer;
     box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
-    background-color: red;
 }
-/* 交互与高亮状态 */
+.map-wall:hover,
+.marker:hover {
+    filter: brightness(1.3);
+    z-index: 20;
+    transform: translate(-50%, -50%) scale(1.1);
+}
 .map-wall:hover {
-    filter: brightness(1.5);
-    z-index: 20;
+    transform: translate(-50%, -50%) rotate(var(--angle, 0deg)) scale(1.05);
 }
-.marker.search-match, .map-wall.search-match {
-    border: 2px solid red;
-    box-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
-    z-index: 20;
+/* 搜索高亮 */
+.search-match {
+    border: 2px solid var(--color-danger);
+    box-shadow: 0 0 10px var(--color-danger);
+    z-index: 50;
 }
-/* 墙体类型样式 */
+/* 墙体变种 (保持固定颜色，因为是游戏元素) */
 .map-wall.wall-breakable {
     background: #20eb31;
     border: 1px solid #fff;
 }
 .map-wall.wall-oneway {
     background-color: #2980b9;
-    border: 1px solid #fff;
     background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
     background-size: 10px 100%;
-}
-.map-wall.wall-oneway::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: calc(16px * var(--scale, 0.5));
-    height: calc(16px * var(--scale, 0.5));
-    background-image: url('icons/arrow.png');
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    pointer-events: none;
+    border: 1px solid #fff;
 }
 /* ===================================================================
-   3. 公共组件样式 (UI 元素统一重构)
+   5. UI 组件通用样式 (Buttons & Inputs)
    =================================================================== */
-/* --- 基础按钮风格 (深色背景+边框+圆角) --- */
-.btn-minimize, .floating-btn, .search-row input, #btn-search-clear, .layer-btn, .layer-reset-btn, .icon-toggle-btn, .io-btn-group button, #btn-import, #btn-export, #btn-clear, .toggle-sub-btn, #path-panel button, #marker-dialog input, #marker-dialog textarea, #marker-dialog select, .type-btn, .dialog-buttons button {
-    border: 1px solid #555;
-    border-radius: 4px;
-    /* 默认圆角 */
-    box-sizing: border-box;
-    transition: all 0.2s;
+button,
+input,
+select,
+textarea {
     font-family: inherit;
+    box-sizing: border-box;
 }
-/* --- 交互元素通用行为 --- */
-.btn-minimize,
-.floating-btn,
-#btn-search-clear,
-.layer-btn,
-.layer-reset-btn,
-.icon-toggle-btn,
-.io-btn-group button,
-#btn-import,
-#btn-export,
-#btn-clear,
-.toggle-sub-btn,
-#path-panel button,
-.type-btn,
-.sub-type-btn,
-.dialog-buttons button,
-.btn-insert-point,
-.btn-delete-point {
+/* 输入框通用 */
+input,
+select,
+textarea {
+    background: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 6px;
+    border-radius: 4px;
+}
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--color-primary);
+    outline: none;
+}
+/* 通用按钮 */
+button {
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 10px;
     cursor: pointer;
-}
-/* --- 标准操作按钮 (统一内边距与字号) --- */
-.io-btn-group button,
-#btn-import,
-#btn-export,
-.toggle-sub-btn,
-#path-panel button,
-#marker-dialog input,
-#marker-dialog textarea,
-#marker-dialog select {
-    padding: 8px;
+    transition: all 0.2s;
     font-size: 13px;
 }
-/* 绿色/成功 */
-.layer-btn.active,
-#path-panel #btn-path-toggle,
-.btn-insert-point,
-#btn-path-import {
-    background-color: #28a745;
-    color: white;
+button:hover {
+    background: var(--btn-bg-hover);
+    color: var(--text-main);
 }
-.layer-btn.active:hover,
-#path-panel #btn-path-toggle:hover,
-#btn-path-import:hover {
-    background-color: #218838;
+button.active {
+    background: var(--color-primary);
+    color: var(--text-inverse);
+    border-color: var(--color-primary-dark);
 }
-/* 红色/危险 */
-#btn-clear,
-.btn-delete-point,
-#btn-path-clear,
-#menu-delete:hover {
-    color: white;
-    /* 默认文字白，除了 .btn-delete-point 后面会单独覆盖 */
+/* 特殊颜色按钮类 */
+.btn-primary {
+    background-color: var(--color-primary);
+    color: var(--text-inverse);
+    border-color: var(--color-primary-dark);
 }
-#btn-clear,
-#btn-path-clear {
-    background-color: #dc3545;
+.btn-primary:hover {
+    background-color: var(--color-primary-dark);
 }
-#btn-clear:hover,
-#btn-path-clear:hover {
-    background-color: #e74c3c;
+.btn-danger {
+    background-color: var(--color-danger);
+    color: var(--text-inverse);
+    border-color: var(--color-danger);
 }
-/* 统一悬浮红 */
-/* 蓝色/主要 */
-.icon-toggle-btn.active,
-.type-btn.active,
-.sub-type-btn.active,
-.floating-btn:hover,
-#btn-ok {
-    background-color: #007bff;
-    /* 统一蓝色系 */
-    color: white;
-    border-color: #0056b3;
+.btn-danger:hover {
+    background-color: var(--color-danger-hover);
 }
-/* 深色/默认 */
-.search-row input,
-.icon-toggle-btn,
-.toggle-sub-btn {
-    background-color: #2b2b2b;
-    /* 或 #333 */
-    color: #ccc;
-}
-.icon-toggle-btn:hover,
-.toggle-sub-btn:hover,
-#btn-search-clear:hover {
-    background-color: #444;
-    color: white;
-}
-/* ===================================================================
-   4. 侧边 UI 面板
-   =================================================================== */
-/* 面板通用属性 (合并 #path-panel 和 .side-panel) */
-.side-panel, #path-panel {
-    position: absolute;
-    top: 0;
-    height: 100vh;
-    background-color: rgba(30, 30, 30, 0.98);
-    backdrop-filter: blur(8px);
-    color: white;
-    z-index: 100;
-    padding: 15px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    overflow-y: auto;
-}
-.side-panel {
-    width: 250px;
-}
-/* 面板位置 */
-.side-panel.left {
-    left: 0;
-    transform: translateX(0);
-}
-.side-panel.left.collapsed {
-    transform: translateX(-100%);
-}
-.side-panel.right {
-    right: 0;
-    transform: translateX(0);
-}
-.side-panel.right.collapsed {
-    transform: translateX(100%);
-}
-/* 路径面板 */
-#path-panel {
-    right: 0;
-    left: auto;
-    width: 280px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-/* 面板内部结构 */
-.panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #555;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
-    flex-shrink: 0;
-}
-.side-panel h3,
-#path-panel h3 {
-    margin: 0;
-    padding: 0;
-    text-align: left;
-}
-/* 最小化按钮 */
 .btn-minimize {
     width: 28px;
     height: 28px;
-    background: rgba(255, 255, 255, 0.1);
-    color: #ccc;
+    padding: 0;
+    background: transparent;
+    border: none;
+    font-size: 16px;
+    color: var(--text-muted);
+}
+.btn-minimize:hover {
+    color: var(--text-main);
+    background: transparent;
+}
+/* 悬浮球按钮 */
+.floating-btn {
+    position: fixed;
+    top: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(4px);
+    z-index: 90;
+    box-shadow: 0 4px 8px var(--shadow-color);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
-    font-weight: bold;
-}
-.btn-minimize:hover {
-    background: #444;
-    color: white;
-}
-/* 浮动打开按钮 */
-.floating-btn {
-    display: none;
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 90;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background-color: rgba(40, 40, 40, 0.95);
-    color: white;
-    font-size: 20px;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-    align-items: center;
-    justify-content: center;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s;
 }
 .floating-btn.left {
     left: 20px;
@@ -288,217 +241,262 @@ body {
     right: 20px;
 }
 .floating-btn:hover {
-    transform: translateY(-50%) scale(1.1);
+    background-color: var(--color-primary);
+    color: var(--text-inverse);
+    transform: scale(1.1);
+    border-color: var(--color-primary);
 }
-/* --- 控制面板特定组件 --- */
-#control-panel hr {
-    border-top: 1px solid #555;
-    margin: 5px 0;
+/* ===================================================================
+   6. 侧边面板 (Side Panels)
+   =================================================================== */
+.side-panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 260px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(var(--backdrop-blur));
+    z-index: 100;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 0 20px var(--shadow-color);
+    color: var(--text-main);
+    /* 关键优化：防止内容溢出无法滚动 */
+    overflow-y: auto;
+}
+.side-panel.left {
+    left: 0;
+    border-right: 1px solid var(--border-color);
+}
+.side-panel.left.collapsed {
+    transform: translateX(-100%);
+}
+.side-panel.right {
+    right: 0;
+    border-left: 1px solid var(--border-color);
+}
+.side-panel.right.collapsed {
+    transform: translateX(100%);
+}
+.side-panel h3 {
+    margin-bottom: 4px;
+    font-size: 16px;
+    color: var(--text-main);
+}
+.side-panel hr {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    width: 100%;
+    flex-shrink: 0;
+    display: block;
+    margin: 10px 0;
+}
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    flex-shrink: 0;
+}
+.panel-header h3 {
+    margin: 0;
+    font-size: 20px;
+}
+.header-info {
+    font-size: 12px;
+    color: var(--text-muted);
 }
 .panel-row {
     display: flex;
     gap: 5px;
     margin-bottom: 8px;
 }
-/* 搜索行 */
-.search-row {
-    gap: 8px;
-    align-items: center;
-}
+/* 搜索框 */
 .search-row input {
-    flex: 2;
-    height: 36px;
-    width: 100px;
-    padding: 0 10px;
-}
-#btn-search-clear {
-    width: 36px;
-    height: 36px;
-    line-height: 36px;
-    text-align: center;
-    background-color: #444;
-    color: #ccc;
-}
-/* 图层按钮 */
-.layer-btn {
-    flex: 3;
-    padding: 6px;
-}
-.layer-reset-btn {
     flex: 1;
-    background-color: #ffc107;
-    font-size: 12px;
+}
+/* 图层控制 */
+#layer-controls .panel-row {
+    display: flex;
+    gap: 5px;
+}
+#layer-controls .layer-btn {
+    flex: 2;
+}
+#layer-controls .layer-reset-btn {
+    flex: 1;
+    background: var(--color-warning);
+    color: #000;
+    /* 警告色通常配黑色文字比较清晰 */
+    border-color: #d39e00;
+    min-width: 0;
 }
 /* 图标网格 */
 #icon-controls {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-    margin: 5px 0 10px 0;
+    gap: 5px;
+    max-height: 30vh;
+    overflow-y: auto;
 }
 .icon-toggle-btn {
     font-size: 12px;
     padding: 4px;
-    background: #333;
-    color: #ccc;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-/* 导入/导出/操作组 */
+/* IO 按钮组 */
 .io-btn-group {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin-top: 5px;
+    margin-bottom: 20px;
+    /* 底部留白 */
 }
-.io-btn-group button,
-#btn-import,
-#btn-export {
+.io-btn-group button {
     width: 100%;
 }
-/* #btn-clear 已在公共组件中定义颜色 */
+#btn-import,
+#btn-export {
+    background-color: var(--color-info);
+    color: var(--text-inverse);
+    border-color: #117a8b;
+}
+#btn-import:hover,
+#btn-export:hover {
+    background-color: #138496;
+}
+#btn-open-batch {
+    grid-column: 1 / -1;
+    background-color: #6c757d;
+    color: var(--text-inverse);
+    border-color: #545b62;
+}
 #btn-clear {
     grid-column: 1 / -1;
 }
-.toggle-sub-btn.active {
-    background-color: #e67e22;
-    border-color: #d35400;
-    color: white;
-    font-weight: bold;
-}
-/* --- 路径面板特定组件 --- */
-#path-panel .panel-row {
-    gap: 8px;
-    align-items: stretch;
-}
-#path-panel #btn-path-toggle {
+/* ===================================================================
+   7. 路径面板特有样式
+   =================================================================== */
+#btn-path-toggle {
+    background-color: var(--color-success);
+    color: var(--text-inverse);
+    border: 1px solid var(--color-success);
     flex: 2;
-    font-weight: bold;
 }
-#path-panel #btn-path-autohide {
-    flex: 1;
-    font-size: 12px;
+#btn-path-toggle:hover {
+    background-color: var(--color-success-hover);
 }
-#path-panel .panel-header,
-#path-panel .panel-row,
-#path-panel .path-actions-bottom {
-    flex-shrink: 0;
+#btn-path-teleport.active {
+    background-color: var(--color-purple);
+    border-color: var(--color-purple);
+    color: var(--text-inverse);
+}
+#btn-path-teleport.active:hover {
+    background-color: var(--color-purple-hover);
 }
 .path-list-container {
-    flex-grow: 1;
-    min-height: 0;
-    margin-bottom: 10px;
-    display: flex;
-    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin: 10px 0;
 }
 #path-list {
-    flex-grow: 1;
-    overflow-y: auto;
     list-style: none;
-    padding: 0 5px;
+    padding: 0;
     margin: 0;
-    color: #ccc;
-    font-size: 13px;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid #444;
-    border-radius: 4px;
 }
 #path-list li {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 6px;
-    border-bottom: 1px solid #444;
+    font-size: 13px;
+    color: var(--text-main);
 }
-#path-list li:last-child {
-    border-bottom: none;
+#path-list li:hover {
+    background: var(--bg-hover);
 }
-/* 列表内小按钮 */
-.btn-insert-point,
-.btn-delete-point {
-    background: transparent;
-    border: none;
-    font-size: 14px;
-    padding: 0 5px;
-    font-weight: bold;
-}
-/* 颜色覆盖 */
-.btn-insert-point {
-    color: #28a745;
-}
-.btn-insert-point:hover {
-    color: #218838;
-}
-.btn-delete-point {
-    color: #ff6b6b;
-    margin-left: 5px;
-}
-.btn-delete-point:hover {
-    color: #ff0000;
-}
-/* ===================================================================
-   路径
-   =================================================================== */
 .path-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 5px;
+    margin-bottom: 5px;
 }
-.path-actions-bottom {
-    flex-shrink: 0;
-    padding-top: 10px;
-    border-top: 1px solid #555;
-}
-/* 传送 */
-#btn-path-teleport {
-    flex: 1;
-    background-color: #6f42c1;
-    color: white;
+.btn-insert-point {
+    color: var(--color-success);
+    background: none;
+    border: none;
     font-weight: bold;
-    border-color: #59359a;
 }
-#btn-path-teleport:hover {
-    background-color: #59359a;
-}
-#btn-path-teleport.active {
-    background-color: #fff;
-    color: #6f42c1;
-    border: 1px solid #6f42c1;
-    box-shadow: 0 0 8px rgba(111, 66, 193, 0.6);
-}
-/*  */
-#btn-path-autohide {
-    flex: 1;
-    background-color: #fff;
-    color: #fd7e14;
-    border: 1px solid #fd7e14;
+.btn-delete-point {
+    color: var(--color-danger);
+    background: none;
+    border: none;
     font-weight: bold;
-    transition: all 0.2s;
-}
-#btn-path-autohide:hover {
-    background-color: #fff3e0;
-}
-#btn-path-autohide.active {
-    background-color: #fd7e14;
-    color: white;
-    border: 1px solid #e36d0d;
-}
-#btn-path-autohide.active:hover {
-    background-color: #e36d0d;
-}
-#btn-path-export {
-    background-color: #17a2b8;
-}
-#btn-path-export:hover {
-    background-color: #138496;
-}
-#btn-path-undo {
-    background-color: #6c757d;
-}
-#btn-path-undo:hover {
-    background-color: #5a6268;
 }
 /* ===================================================================
-   5. 弹窗与表单
+   8. 日志面板特有样式
    =================================================================== */
+#log-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    color: var(--text-main);
+    font-size: 12px;
+    font-family: monospace;
+}
+#log-list li {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+    line-height: 1.4;
+}
+#log-list li:first-child {
+    border-top: 1px solid var(--border-color);
+}
+.log-time {
+    color: var(--text-muted);
+    margin-right: 8px;
+}
+.log-type {
+    font-weight: bold;
+    color: var(--color-info);
+    margin-right: 5px;
+}
+.btn-undo-log {
+    background-color: var(--btn-bg);
+    color: var(--btn-text);
+    border: 1px solid var(--border-color);
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-undo-log:hover {
+    background-color: var(--color-danger);
+    color: var(--text-inverse);
+    border-color: var(--color-danger);
+}
+/* ===================================================================
+   9. 弹窗与浮层 (Overlay & Dialogs)
+   =================================================================== */
+.coord-row {
+    display: flex;
+    gap: 10px;
+}
+.coord-row input {
+    flex: 1;
+    width: 0;
+    margin-bottom: 0;
+    text-align: center;
+}
 #dialog-overlay {
     display: none;
     position: fixed;
@@ -506,175 +504,321 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
+    /* 遮罩层保持深色半透明 */
     z-index: 200;
 }
-#marker-dialog {
+#marker-dialog,
+#batch-dialog {
     display: none;
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: white;
-    padding: 15px 25px;
-    width: 300px;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    background: var(--bg-panel);
+    color: var(--text-main);
+    padding: 15px 20px 10px 20px;
+    width: 320px;
+    border-radius: 8px;
     z-index: 201;
+    box-shadow: 0 10px 30px var(--shadow-color);
+    border: 1px solid var(--border-color);
 }
-#marker-dialog h3 {
-    margin: 0 0 15px 0;
-    text-align: center;
-    border-bottom: 1px solid #eee;
+#marker-dialog h3,
+#batch-dialog h3 {
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px;
+    color: var(--text-main);
 }
 #marker-dialog input,
 #marker-dialog textarea,
 #marker-dialog select {
     width: 100%;
-    margin-bottom: 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-}
-.coord-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 12px;
-}
-/* 类型切换组 */
-.type-toggle-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 15px;
-}
-.type-btn {
-    flex: 1;
-    padding: 10px 0;
-    border: 1px solid #ddd;
-    background-color: #f8f9fa;
-    border-radius: 6px;
-    font-weight: bold;
-    color: #555;
-}
-.type-btn:hover {
-    background-color: #e2e6ea;
-}
-.type-btn.active {
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-}
-/* 子类型切换组 */
-.sub-toggle-group {
-    display: flex;
-    gap: 1px;
     margin-bottom: 10px;
-    background: #e9ecef;
-    padding: 3px;
-    border-radius: 6px;
-    border: 1px solid #ddd;
 }
+.type-toggle-group,
+.sub-toggle-group,
+.flex-row,
+.dialog-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.type-btn,
 .sub-type-btn {
     flex: 1;
-    padding: 6px;
-    border: none;
-    background: transparent;
+    text-align: center;
+    background-color: var(--btn-bg);
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}
+.type-btn:hover {
+    background-color: var(--btn-bg-hover);
+}
+.sub-toggle-group {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 4px;
     border-radius: 4px;
-    font-size: 13px;
-    color: #495057;
 }
-.sub-type-btn.active {
-    background: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-/* 图标预览 */
 .icon-selector-row {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
+    background-color: var(--bg-hover);
     padding: 10px;
-    border-radius: 6px;
-    background: #f9f9f9;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
 }
 #dialog-icon-preview {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     object-fit: contain;
-    background: white;
-    border: 1px solid #ccc;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
 }
-.dialog-buttons {
-    display: flex;
-    gap: 15px;
+#panel-wall-select {
+    display: none;
+    background: var(--bg-hover);
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+}
+#panel-wall-select  .flex-row {
+    margin-bottom: 0;
+}
+#panel-wall-select input,
+#panel-wall-select select {
+    margin-bottom: 0;
 }
 .dialog-buttons button {
     flex: 1;
-    padding: 10px;
-    border: none;
+    padding: 8px 0;
+    font-size: 13px;
+    font-weight: normal;
     border-radius: 6px;
-    color: white;
 }
 #btn-cancel {
-    background-color: #666;
+    background-color: var(--btn-bg);
+    color: var(--btn-text);
+}
+#btn-cancel:hover {
+    background-color: var(--btn-bg-hover);
+}
+/* 批量操作弹窗 */
+.batch-section {
+    margin-bottom: 15px;
+}
+.section-title {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+.info-text {
+    font-size: 12px;
+    color: var(--color-info);
+    margin-top: 5px;
+    text-align: right;
+}
+#batch-dialog hr {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    margin: 15px 0;
+}
+#batch-dialog .flex-row {
+    background-color: transparent;
+}
+#btn-exec-delete {
+    background-color: var(--color-danger);
+    height: 36px;
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 5px;
+    border-radius: 6px;
+    color: var(--text-inverse);
+    border: none;
+}
+#btn-exec-delete:hover {
+    background-color: var(--color-danger-hover);
 }
 /* ===================================================================
-   6. 悬浮提示与右键菜单
+   10. 右键菜单 & Tooltip
    =================================================================== */
+#context-menu {
+    display: none;
+    position: fixed;
+    background: var(--bg-panel);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    box-shadow: 2px 2px 10px var(--shadow-color);
+    z-index: 300;
+    min-width: 140px;
+    border-radius: 6px;
+    padding: 5px 0;
+}
+.menu-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border-color);
+}
+.menu-item:last-child {
+    border-bottom: none;
+}
+.menu-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-main);
+}
+.menu-item.delete {
+    color: #ff6b6b;
+}
+.menu-item.delete:hover {
+    background-color: rgba(220, 53, 69, 0.15);
+    color: #ff4d4d;
+}
 #tooltip {
     position: absolute;
     display: none;
-    background-color: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.85);
     color: white;
-    padding: 8px 12px;
+    padding: 8px;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 12px;
     pointer-events: none;
-    z-index: 100;
+    z-index: 500;
     white-space: pre-line;
-    max-width: 250px;
-    line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 #global-tip {
     position: fixed;
-    top: 20px;
+    top: 15%;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.8);
     color: white;
-    padding: 10px 20px;
+    padding: 8px 20px;
     border-radius: 20px;
-    z-index: 1000;
+    pointer-events: none;
     opacity: 0;
     transition: opacity 0.3s;
-    pointer-events: none;
+    z-index: 1000;
 }
-#context-menu {
-    display: none;
+/* ===================================================================
+   11. 全局主题切换按钮
+   =================================================================== */
+#btn-global-theme {
     position: fixed;
-    background: white;
-    border: 1px solid #ccc;
-    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
-    z-index: 300;
-    min-width: 120px;
-}
-.menu-item {
-    padding: 8px 15px;
+    bottom: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    color: var(--text-main);
+    border: 2px solid var(--border-color);
+    font-size: 20px;
     cursor: pointer;
-    color: #333;
+    z-index: 1000;
+    box-shadow: 0 4px 10px var(--shadow-color);
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.menu-item:hover {
-    background-color: #f0f0f0;
+#btn-global-theme:hover {
+    transform: rotate(180deg) scale(1.1);
+    background: var(--bg-hover);
+    color: var(--color-warning);
+    /* 悬停时变成黄色/金色 */
+    border-color: var(--color-warning);
 }
-#menu-delete:hover {
-    color: red;
+/* ===================================================================
+   12. 批量面板专用样式 (适配亮/暗主题)
+   =================================================================== */
+.batch-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s, border-color 0.3s;
 }
-#panel-wall-select {
-    display: none;
-    background: #f9f9f9;
-    padding: 10px;
-    border-radius: 6px;
-    margin-bottom: 15px;
-    border: 1px solid #ddd;
+.batch-edit-row:hover {
+    border-color: var(--color-primary);
+}
+/* 复选框 */
+.batch-edit-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+    margin: 0;
+}
+/* 标签文字 */
+.batch-edit-row label {
+    width: 70px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-main);
+}
+/* 输入控件 */
+.batch-edit-row input[type="text"],
+.batch-edit-row select {
+    flex: 1;
+    height: 30px;
+    background: var(--bg-input);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    opacity: 1;
+    transition: all 0.2s;
+}
+/* 禁用状态：变透明并禁止鼠标事件 */
+.batch-edit-row input:disabled,
+.batch-edit-row select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+}
+/* ===================================================================
+   14. 移动端适配 (Mobile Responsive)
+   =================================================================== */
+@media (max-width: 768px) {
+    .side-panel {
+        width: 100%;
+        max-width: 100%;
+        background: rgba(30, 30, 30, 0.98);
+    }
+    .floating-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+    }
+    #marker-dialog,
+    #batch-dialog {
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    #tooltip {
+        display: none !important;
+    }
+    #context-menu {
+        padding: 10px 0;
+    }
+    .menu-item {
+        padding: 15px 20px;
+        font-size: 16px;
+    }
 }
