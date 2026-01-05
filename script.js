@@ -131,10 +131,12 @@ let actionLog = [];
 /* 移动端 */
 let lastTouchX = 0;
 let lastTouchY = 0;
-let initialPinchDist = 0;
-let initialScale = 0;
 let longPressTimer = null;
 let isPinching = false;
+let initialPinchDist = 0;   
+let initialScale = 0;       
+let pinchStartMapX = 0;     
+let pinchStartMapY = 0;     
 /* ==================================================================================
    SECTION 4: 初始化流程 (INIT)
    ================================================================================== */
@@ -327,15 +329,21 @@ container.addEventListener('touchstart', (e) => {
     else if (e.touches.length === 2) {
         isPinching = true;
         isDragging = false;
-        clearTimeout(longPressTimer); 
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        clearTimeout(longPressTimer);
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
         initialPinchDist = Math.hypot(dx, dy);
-        initialScale = scale; 
+        initialScale = scale;
+        const centerX = (t1.clientX + t2.clientX) / 2;
+        const centerY = (t1.clientY + t2.clientY) / 2;
+        pinchStartMapX = (centerX - mapX) / scale;
+        pinchStartMapY = (centerY - mapY) / scale;
     }
 }, { passive: false });
 container.addEventListener('touchmove', (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
     if (e.touches.length === 1 && isDragging && !isPinching) {
         const touch = e.touches[0];
         const dx = touch.clientX - lastTouchX;
@@ -351,13 +359,19 @@ container.addEventListener('touchmove', (e) => {
     }
     else if (e.touches.length === 2 && isPinching) {
         clearTimeout(longPressTimer);
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
         const currentDist = Math.hypot(dx, dy);
         if (initialPinchDist > 0) {
             const zoomFactor = currentDist / initialPinchDist;
             let newScale = initialScale * zoomFactor;
             newScale = Math.min(Math.max(newScale, 0.25), 5); 
+            const currentCenterX = (t1.clientX + t2.clientX) / 2;
+            const currentCenterY = (t1.clientY + t2.clientY) / 2;
+            mapX = currentCenterX - (pinchStartMapX * newScale);
+            mapY = currentCenterY - (pinchStartMapY * newScale);
             scale = newScale;
             triggerRender();
         }
@@ -368,6 +382,11 @@ container.addEventListener('touchend', (e) => {
     if (e.touches.length === 0) {
         isDragging = false;
         isPinching = false;
+    }
+    if (e.touches.length === 1) {
+        isPinching = false;
+        lastTouchX = e.touches[0].clientX;
+        lastTouchY = e.touches[0].clientY;
     }
 });
 function getTouchOnMap(touch) {
@@ -1395,7 +1414,6 @@ function loadMarkers() {
         loadDefaultData();
     }
 }
-// 异步加载默认数据
 function loadDefaultData() {
     fetch('default.json')
         .then(response => {
