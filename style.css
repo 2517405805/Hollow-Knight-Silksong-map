@@ -128,7 +128,7 @@ body {
     box-shadow: 0 0 10px var(--color-danger);
     z-index: 50;
 }
-/* 墙体变种 (保持固定颜色，因为是游戏元素) */
+/* 墙体变种 */
 .map-wall.wall-breakable {
     background: #20eb31;
     border: 1px solid #fff;
@@ -263,7 +263,6 @@ button.active {
     transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     box-shadow: 0 0 20px var(--shadow-color);
     color: var(--text-main);
-    /* 关键优化：防止内容溢出无法滚动 */
     overflow-y: auto;
 }
 .side-panel.left {
@@ -331,7 +330,6 @@ button.active {
     flex: 1;
     background: var(--color-warning);
     color: #000;
-    /* 警告色通常配黑色文字比较清晰 */
     border-color: #d39e00;
     min-width: 0;
 }
@@ -355,7 +353,6 @@ button.active {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-bottom: 20px;
-    /* 底部留白 */
 }
 .io-btn-group button {
     width: 100%;
@@ -513,7 +510,6 @@ button.active {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.6);
-    /* 遮罩层保持深色半透明 */
     z-index: 200;
 }
 #marker-dialog,
@@ -790,7 +786,6 @@ button.active {
     opacity: 1;
     transition: all 0.2s;
 }
-/* 禁用状态：变透明并禁止鼠标事件 */
 .batch-edit-row input:disabled,
 .batch-edit-row select:disabled {
     opacity: 0.4;
